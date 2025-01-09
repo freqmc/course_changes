@@ -11,13 +11,13 @@ typedef struct {
 } resource_values;
 
 resource_values set_check_values();
-void read_log_file(const wchar_t* filename, resource_values* values, int* count);
+int read_log_file(const wchar_t* filename, resource_values* values, int* count);
 void analyze_statistics(resource_values* values, int count);
 void monitor_resources(resource_values* values, int count, resource_values limits);
 void extract_values_from_line(const wchar_t* line, resource_values* values);
 int compare_alert_levels(resource_values values, resource_values limits);
 void analyze_threats(resource_values values, resource_values limits, wchar_t threats[][256], int* threats_count);
-void save_results(const wchar_t* filename, wchar_t threats[][256], int threats_count);
+int save_results(const wchar_t* filename, wchar_t threats[][256], int threats_count);
 
 int main() {
     setlocale(LC_CTYPE, ""); // Установка локали
@@ -42,16 +42,18 @@ int main() {
             wscanf(L"%ls", filename);
             resource_values values[100];
             int count = 0;
-            read_log_file(filename, values, &count);
-            monitor_resources(values, count, limits);
+            if (read_log_file(filename, values, &count) == 0) {
+                monitor_resources(values, count, limits);
+            }
             break;
         case 3:
             printf("Введите имя лог-файла для анализа: ");
             wscanf(L"%ls", filename);
             resource_values values_for_analysis[100];
             int count_analysis = 0;
-            read_log_file(filename, values_for_analysis, &count_analysis);
-            analyze_statistics(values_for_analysis, count_analysis);
+            if (read_log_file(filename, values_for_analysis, &count_analysis) == 0) {
+                analyze_statistics(values_for_analysis, count_analysis);
+            }
             break;
         case 0:
             break;
@@ -74,11 +76,11 @@ resource_values set_check_values() {
     return thresholds;
 }
 
-void read_log_file(const wchar_t* filename, resource_values* values, int* count) {
+int read_log_file(const wchar_t* filename, resource_values* values, int* count) {
     FILE* log_file = _wfopen(filename, L"r, ccs=UTF-8");
     if (!log_file) {
         perror("Не удалось открыть файл");
-        exit(EXIT_FAILURE);
+        return -1; // Возврат ошибки
     }
 
     wchar_t line[256]; // Буфер для строки
@@ -88,6 +90,7 @@ void read_log_file(const wchar_t* filename, resource_values* values, int* count)
     }
 
     fclose(log_file);
+    return 0; // Успех
 }
 
 void monitor_resources(resource_values* values, int count, resource_values limits) {
@@ -201,11 +204,11 @@ void analyze_threats(resource_values values, resource_values limits, wchar_t thr
     }
 }
 
-void save_results(const wchar_t* filename, wchar_t threats[][256], int threats_count) {
+int save_results(const wchar_t* filename, wchar_t threats[][256], int threats_count) {
     FILE* output_file = _wfopen(filename, L"w, ccs=UTF-8");
     if (!output_file) {
         perror("Не удалось открыть файл для записи");
-        exit(EXIT_FAILURE);
+        return -1; // Возврат ошибки
     }
 
     printf("Выберите уровень угроз для сохранения:\n");
@@ -237,10 +240,11 @@ void save_results(const wchar_t* filename, wchar_t threats[][256], int threats_c
         default:
             printf("Неверный уровень угрозы.\n");
             fclose(output_file);
-            return; // Выходим из функции в случае неправильного уровня
+            return -1; // Выход в случае неправильного уровня
         }
     }
 
     fclose(output_file);
     wprintf(L"Результаты мониторинга успешно сохранены в файл: '%ls'.\n", filename);
+    return 0; // Успех
 }
